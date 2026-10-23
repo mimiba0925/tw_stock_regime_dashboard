@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* 固定顏色語意：Green = positive / Red = negative / Yellow = caution / Gray = neutral */
+@theme {
+  --color-pos: #22a06b;
+  --color-neg: #e5484d;
+  --color-cau: #d4a72c;
+  --color-neu: #8b949e;
+  --font-sans: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, monospace;
+}
+
+:root {
+  --bg: #f6f7f9;
+  --panel: #ffffff;
+  --line: #e3e6ea;
+  --text: #1c2128;
+  --muted: #667080;
+}
+.dark {
+  --bg: #0d1117;
+  --panel: #151b23;
+  --line: #262d36;
+  --text: #e6edf3;
+  --muted: #8b949e;
+}
+
+html, body { background: var(--bg); color: var(--text); }
+body { font-family: var(--font-sans); font-size: 13px; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+.muted { color: var(--muted); }
+.line { border-color: var(--line); }
+.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.tone-positive { color: var(--color-pos); }
+.tone-negative { color: var(--color-neg); }
+.tone-caution { color: var(--color-cau); }
+.tone-neutral { color: var(--color-neu); }
+.bg-tone-positive { background: color-mix(in srgb, var(--color-pos) 14%, transparent); }
+.bg-tone-negative { background: color-mix(in srgb, var(--color-neg) 14%, transparent); }
+.bg-tone-caution { background: color-mix(in srgb, var(--color-cau) 16%, transparent); }
+.bg-tone-neutral { background: color-mix(in srgb, var(--color-neu) 14%, transparent); }
+table th { font-weight: 500; color: var(--muted); }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }

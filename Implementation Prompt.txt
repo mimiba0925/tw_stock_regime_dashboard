@@ -1,0 +1,1163 @@
+台股 Market & Stock Regime Dashboard — Implementation Prompt
+
+你是一位資深 Quant Developer、Financial Data Engineer 與 Dashboard UX Engineer。
+
+請幫我設計並實作一個「台股大盤 + 自選個股 Market Regime Dashboard」。
+
+一、產品目標
+
+這不是傳統的技術分析工具，也不是單純股票行情看板。
+
+核心目標：
+
+使用者打開 Dashboard 後，30 秒內能回答：
+
+1. 現在台股大盤是強還是弱？
+2. 趨勢正在變強還是變弱？
+3. 市場廣度是否支持指數？
+4. 資金目前流向哪裡？
+5. 市場是否處於 Risk-On / Neutral / Risk-Off？
+6. 現在的變化是在加速還是減速？
+7. 我的自選股是否強於大盤？
+8. 個股目前處於什麼 Regime？
+9. 哪些指標出現異常或 Regime Change？
+
+不要把 Dashboard 做成「所有技術指標的集合」。
+
+設計原則：
+
+State + Change + Trend + Acceleration + Relative Strength + Historical Position
+
+⸻
+
+二、技術架構
+
+請採用容易維護、容易擴充的架構。
+
+建議：
+
+* Frontend: React + TypeScript
+* UI: Tailwind CSS
+* Chart: TradingView Lightweight Charts 或同級方案
+* Backend: Python FastAPI
+* Data processing: pandas / numpy
+* Database: PostgreSQL
+* Cache: Redis（若有需要）
+* Scheduler: APScheduler / Celery / cron 均可
+* API: REST
+* 所有計算邏輯與 UI 分離
+
+如果目前專案已有既定 framework，優先沿用既有架構，不要無必要重建。
+
+⸻
+
+三、資料設計
+
+需要支援：
+
+Market
+
+* TAIEX / 加權指數
+* OTC / 櫃買指數
+* 成交金額
+* 成交量
+* 漲家數
+* 跌家數
+* 平盤家數
+* 上漲成交量
+* 下跌成交量
+* 52W New High
+* 52W New Low
+* Stocks Above MA20
+* Stocks Above MA60
+
+Institutional
+
+* Foreign
+* Investment Trust
+* Dealer
+* Total Institutional
+
+Positioning / Risk
+
+* Margin balance
+* Margin change
+* Short balance
+* Short change
+* Securities lending
+* Securities lending change
+* Turnover
+* Volatility
+
+Stock
+
+每一檔自選股至少需要：
+
+* OHLCV
+* Market cap
+* Sector
+* Foreign ownership / institutional flow
+* Margin
+* Short
+* Securities lending
+* Revenue
+* EPS
+* PE
+* PB
+* ROE
+* Dividend yield
+
+⸻
+
+四、時間維度是核心
+
+所有主要指標不能只存 Current Value。
+
+每個重要 metric 至少計算：
+
+* Current
+* 1D Change
+* 3D Change
+* 5D Change
+* 20D Change
+* 60D Change
+* 120D Change
+* 250D Change
+
+並計算：
+
+1. Change
+
+例如：
+
+change_5d = current - value_5d_ago
+
+percentage_change_5d = current / value_5d_ago - 1
+
+⸻
+
+2. Slope
+
+針對主要時間序列計算 rolling regression slope。
+
+至少：
+
+* 5D slope
+* 20D slope
+* 60D slope
+
+Slope 必須 normalize，避免不同 metric 量綱無法比較。
+
+⸻
+
+3. Acceleration
+
+定義：
+
+acceleration = short_term_slope - medium_term_slope
+
+例如：
+
+acceleration_5_20 =
+slope_5d - slope_20d
+
+用途：
+
+判斷目前變化是在：
+
+* 加速
+* 減速
+* 維持
+
+⸻
+
+4. Percentile
+
+對主要指標計算：
+
+* 20D percentile
+* 60D percentile
+* 250D percentile
+
+例如：
+
+volume_percentile_250d
+
+代表：
+
+「目前成交量在過去 250 個交易日中的歷史位置」。
+
+⸻
+
+5. Z-score
+
+對適合的指標計算：
+
+z_score_20d
+z_score_60d
+z_score_250d
+
+避免只看絕對數字。
+
+⸻
+
+五、Market Dashboard
+
+首頁必須是「Market Regime Dashboard」。
+
+不要讓使用者一進來就看到大量數字。
+
+第一區：
+
+MARKET REGIME
+
+顯示：
+
+* Market Regime
+* Market Score 0–100
+* Trend Score
+* Breadth Score
+* Momentum Score
+* Liquidity Score
+* Money Flow Score
+* Risk Score
+
+例如：
+
+MARKET REGIME
+🟢 BULL
+Score: 76 / 100
+
+Trend       84
+Breadth     71
+Momentum    78
+Liquidity   82
+Money Flow  69
+Risk        61
+
+不要假裝這些分數是精確預測。
+
+它們只是「資訊壓縮後的市場狀態」。
+
+⸻
+
+六、Market Regime
+
+建立以下 Regime：
+
+* STRONG_BULL
+* BULL
+* BULL_PULLBACK
+* ROTATION
+* RECOVERY
+* NEUTRAL
+* WEAK
+* BEAR
+* STRONG_BEAR
+* CAPITULATION
+
+Regime 不應只由單一指標決定。
+
+必須綜合：
+
+Trend
+Breadth
+Momentum
+Money Flow
+Liquidity
+Risk
+
+⸻
+
+七、Market Trend
+
+顯示：
+
+* TAIEX
+* OTC
+* MA20
+* MA60
+* MA120
+* MA240
+* Distance to MA20
+* Distance to MA60
+* Distance to 52W High
+
+另外計算：
+
+* MA20 slope
+* MA60 slope
+* MA120 slope
+* MA20 vs MA60
+* MA60 vs MA120
+
+判斷：
+
+Price > MA20
+MA20 > MA60
+MA60 > MA120
+以及各 MA slope。
+
+不要只顯示數字，要轉換成：
+
+* Bullish
+* Neutral
+* Bearish
+
+⸻
+
+八、Market Breadth
+
+核心指標：
+
+* Advance
+* Decline
+* Advance / Decline Ratio
+* Advance / Decline Volume
+* Stocks Above MA20
+* Stocks Above MA60
+* Stocks Above MA120
+* New High
+* New Low
+* New High / New Low Ratio
+
+所有 Breadth 指標都要顯示：
+
+Current
+1D Δ
+5D Δ
+20D Δ
+
+例如：
+
+Above MA20
+Current: 58%
+
+1D: -4%
+5D: -12%
+20D: +7%
+
+並判斷：
+
+Breadth improving
+Breadth deteriorating
+Breadth neutral
+
+⸻
+
+九、Money Flow
+
+建立：
+
+Foreign
+Investment Trust
+Dealer
+Total Institutional
+
+至少顯示：
+
+1D
+5D
+20D
+60D
+
+並計算：
+
+* cumulative flow
+* flow slope
+* flow acceleration
+* flow percentile
+
+不要只看「今日買超」。
+
+需要判斷：
+
+* Increasing buying
+* Decreasing buying
+* Increasing selling
+* Decreasing selling
+
+⸻
+
+十、Liquidity / Volume
+
+核心：
+
+* Market turnover
+* 5D average turnover
+* 20D average turnover
+* Turnover / MA20
+* Up volume
+* Down volume
+* Up volume / total volume
+* Down volume / total volume
+
+另外：
+
+Volume percentile 20D
+Volume percentile 60D
+Volume percentile 250D
+
+判斷：
+
+* High volume
+* Normal volume
+* Low volume
+
+以及：
+
+* Price ↑ + Volume ↑
+* Price ↑ + Volume ↓
+* Price ↓ + Volume ↑
+* Price ↓ + Volume ↓
+
+這四種狀態必須視覺化。
+
+⸻
+
+十一、Market Risk
+
+如果可取得資料，加入：
+
+* VIX
+* USD/TWD
+* US10Y
+* Nasdaq
+* SOX
+* S&P 500
+* Nikkei
+* Hang Seng
+
+不要讓全球市場資料喧賓奪主。
+
+它們只作為：
+
+External Risk Context。
+
+計算：
+
+* Daily change
+* 5D change
+* 20D change
+* percentile
+
+⸻
+
+十二、Sector Rotation
+
+建立 Sector Dashboard。
+
+至少顯示：
+
+* Sector return 1D
+* Sector return 5D
+* Sector return 20D
+* Sector return 60D
+* Sector volume
+* Sector relative strength
+* Sector breadth
+* Foreign flow
+* Investment Trust flow
+
+用 Treemap / Heatmap。
+
+Treemap：
+
+Size = turnover 或 market cap
+
+Color = return
+
+另外提供排序：
+
+* Strongest
+* Weakest
+* Improving
+* Deteriorating
+
+⸻
+
+十三、Relative Strength
+
+這是個股 Dashboard 的核心。
+
+每一檔股票計算：
+
+Stock return - TAIEX return
+
+時間尺度：
+
+* 1D
+* 5D
+* 20D
+* 60D
+* 120D
+
+同時：
+
+Stock return - Sector return
+
+時間尺度：
+
+* 5D
+* 20D
+* 60D
+
+建立：
+
+RS Score 0–100
+
+RS Score 越高表示股票相對市場越強。
+
+⸻
+
+十四、Stock Dashboard
+
+使用者可以建立 Watchlist。
+
+Watchlist 欄位：
+
+* Symbol
+* Name
+* Price
+* Change
+* Trend Score
+* Momentum Score
+* Volume Score
+* Chip Score
+* Relative Strength Score
+* Fundamental Score
+* Stock Score
+* Regime
+
+例如：
+
+2330
+Trend 88
+Momentum 82
+Volume 76
+Chip 91
+RS 94
+Fundamental 87
+Stock Score 88
+Regime: STRONG_BULL
+
+⸻
+
+十五、個股頁
+
+每檔股票包含：
+
+Price / Trend
+
+* Candlestick
+* MA20
+* MA60
+* MA120
+* MA240
+* Volume
+
+Momentum
+
+只使用：
+
+* RSI
+* MACD
+* ROC
+
+不要加入大量重複技術指標。
+
+Volume
+
+* Volume
+* Volume / MA20
+* OBV
+* ATR
+* Volume percentile
+
+Institutional
+
+* Foreign
+* Investment Trust
+* Dealer
+
+時間尺度：
+
+1D
+5D
+20D
+60D
+
+Positioning
+
+* Margin
+* Short
+* Securities Lending
+* Turnover
+
+Relative Strength
+
+比較：
+
+* Stock vs TAIEX
+* Stock vs Sector
+
+Fundamental
+
+* Revenue YoY
+* EPS YoY
+* ROE
+* Gross margin
+* PE
+* PB
+* Dividend yield
+
+以及：
+
+Historical percentile。
+
+⸻
+
+十六、Stock Score
+
+建立：
+
+Stock Score 0–100
+
+建議初始權重：
+
+Trend             20%
+Momentum          15%
+Volume            10%
+Institutional     20%
+Relative Strength 20%
+Fundamental       15%
+
+所有權重必須集中在 config，不要 hard-code。
+
+未來可以調整。
+
+⸻
+
+十七、Market Score
+
+初始：
+
+Trend        25%
+Breadth      20%
+Momentum     15%
+Liquidity    10%
+Money Flow   15%
+Risk         15%
+
+注意：
+
+Risk Score 越高代表「風險越低 / 市場環境越健康」。
+
+所有 Score 必須 normalize 到 0–100。
+
+不要直接把原始數值相加。
+
+⸻
+
+十八、時間維度的 UI
+
+這是非常重要的 UX。
+
+每個主要 metric 都提供：
+
+Current | 1D | 5D | 20D | 60D
+
+例如：
+
+Foreign Flow
+
+1D     +120B ↑
+5D     +380B ↑
+20D    +820B ↑
+60D    +410B ↓
+
+並顯示 Trend：
+
+↑ Improving
+→ Neutral
+↓ Deteriorating
+
+Acceleration：
+
+↑↑ Accelerating
+→ Stable
+↓↓ Decelerating
+
+⸻
+
+十九、Dashboard 必須能發現「背離」
+
+建立 Divergence Detection。
+
+至少偵測：
+
+Price / Breadth Divergence
+
+Index ↑
+Breadth ↓
+
+→ Bearish Breadth Divergence
+
+Price / Volume Divergence
+
+Price ↑
+Volume ↓
+
+→ Weak Rally
+
+Price / Institutional Divergence
+
+Price ↑
+Foreign ↓
+
+→ Institutional Divergence
+
+Index / Stock Divergence
+
+Index ↑
+Stock ↓
+
+→ Relative Weakness
+
+Sector / Index Divergence
+
+Sector ↑
+Index ↓
+
+→ Potential Leadership
+
+所有 divergence 都要產生 Alert。
+
+⸻
+
+二十、Regime Change Detection
+
+偵測：
+
+* Trend change
+* Breadth change
+* Money flow change
+* Volatility spike
+* Volume spike
+* Relative strength reversal
+
+例如：
+
+「Above MA20 從 68% 降至 45%」
+
+「Foreign 20D slope 從 positive 轉 negative」
+
+「TAIEX 跌破 MA60」
+
+「New Low > New High」
+
+產生：
+
+REGIME CHANGE
+
+而不是只顯示一般數值。
+
+⸻
+
+二十一、Alert System
+
+建立 Alert Center。
+
+分類：
+
+Market
+
+* Trend reversal
+* Breadth deterioration
+* Breadth expansion
+* Liquidity spike
+* Volatility spike
+
+Sector
+
+* Sector leadership
+* Sector rotation
+* Sector weakness
+
+Stock
+
+* Breakout
+* Breakdown
+* Volume spike
+* Relative strength breakout
+* Institutional accumulation
+* Institutional distribution
+
+每個 Alert 顯示：
+
+Time
+Symbol
+Severity
+Reason
+Related metrics
+
+例如：
+
+🔴 MARKET REGIME CHANGE
+
+TAIEX < MA60
+
+Above MA20:
+62% → 43%
+
+Foreign 5D:
++320B → -180B
+
+Volume:
+1.5x MA20
+
+結論：
+Market breadth deteriorating with institutional selling.
+
+⸻
+
+二十二、Chart 設計
+
+不要所有東西都用 chart。
+
+使用：
+
+* Line chart：Trend
+* Candlestick：Price
+* Bar chart：Institutional flow
+* Heatmap：Sector
+* Treemap：Sector rotation
+* Gauge：Score
+* Sparkline：時間變化
+* Table：Watchlist
+* Matrix：Market regime
+
+每個 chart 都要回答一個問題。
+
+避免 decorative charts。
+
+⸻
+
+二十三、首頁資訊層級
+
+首頁只顯示：
+
+1. Market Regime
+2. Market Score
+3. TAIEX / OTC
+4. Trend
+5. Breadth
+6. Money Flow
+7. Liquidity
+8. Sector Rotation
+9. Watchlist Alerts
+
+詳細資料放第二層。
+
+⸻
+
+二十四、視覺設計
+
+整體風格：
+
+* Professional financial terminal
+* Clean
+* Dense but readable
+* Dark mode first
+* 支援 Light mode
+* 不要過度使用鮮豔顏色
+
+顏色語意固定：
+
+Green = positive
+Red = negative
+Yellow = caution
+Gray = neutral
+
+不要讓不同 component 使用不同顏色語意。
+
+⸻
+
+二十五、資料更新
+
+市場即時資料：
+
+依資料來源能力更新。
+
+日線 / 籌碼資料：
+
+每日更新。
+
+基本面：
+
+依財報更新。
+
+每個資料表必須記錄：
+
+* data_timestamp
+* source
+* update_time
+
+Frontend 顯示：
+
+「Last updated: YYYY-MM-DD HH:mm:ss」
+
+避免使用者誤以為所有資料都是即時。
+
+⸻
+
+二十六、Data Quality
+
+每個 metric 必須能表示：
+
+* available
+* stale
+* missing
+* estimated
+
+如果資料不存在：
+
+不要填 0。
+
+顯示：
+
+N/A
+
+並標示：
+
+Data unavailable
+
+避免把缺失資料當成真實的零值。
+
+⸻
+
+二十七、API 設計
+
+至少建立：
+
+GET /api/market/summary
+
+GET /api/market/trend
+
+GET /api/market/breadth
+
+GET /api/market/flow
+
+GET /api/market/risk
+
+GET /api/sectors
+
+GET /api/stocks/watchlist
+
+GET /api/stocks/{symbol}
+
+GET /api/stocks/{symbol}/trend
+
+GET /api/stocks/{symbol}/flow
+
+GET /api/stocks/{symbol}/fundamentals
+
+GET /api/alerts
+
+⸻
+
+二十八、Config-driven
+
+所有重要設定集中在：
+
+config/
+
+包括：
+
+* score weights
+* thresholds
+* regime thresholds
+* time windows
+* sectors
+* watchlist
+* data source
+* update frequency
+
+不要散落在 frontend code。
+
+⸻
+
+二十九、重要計算原則
+
+不要過度擬合。
+
+第一版：
+
+* 不做 machine learning
+* 不做價格預測
+* 不宣稱可以預測未來
+* 不把 Score 當成買賣訊號
+* 不使用大量高度相關的指標
+
+Dashboard 是：
+
+Market Observation System
+
+不是：
+
+Trading Signal Generator
+
+⸻
+
+三十、第一版 MVP
+
+請先實作 MVP，不要一次做全部。
+
+MVP 必須完成：
+
+Market
+
+* TAIEX
+* OTC
+* MA20
+* MA60
+* MA120
+* Volume
+* Advance / Decline
+* Above MA20
+* Above MA60
+* New High / New Low
+* Foreign
+* Investment Trust
+* Dealer
+
+Time Dimension
+
+* Current
+* 1D
+* 5D
+* 20D
+* 60D
+* Slope
+* Acceleration
+* Percentile
+
+Score
+
+* Market Score
+* Trend Score
+* Breadth Score
+* Money Flow Score
+* Liquidity Score
+* Risk Score
+
+Stock
+
+* Watchlist
+* Price
+* Trend
+* Momentum
+* Volume
+* Institutional
+* Relative Strength
+* Stock Score
+
+UI
+
+* Market overview
+* Sector heatmap
+* Watchlist
+* Stock detail
+* Alerts
+
+⸻
+
+三十一、開發順序
+
+請依照以下順序：
+
+1. 建立 data model
+2. 建立 data ingestion layer
+3. 建立 indicator calculation layer
+4. 建立 time-series calculation layer
+5. 建立 scoring engine
+6. 建立 regime engine
+7. 建立 API
+8. 建立 Market Dashboard
+9. 建立 Watchlist
+10. 建立 Stock Dashboard
+11. 建立 Alert Engine
+12. 最後才做 UI polish
+
+不要先做漂亮 UI 再補資料邏輯。
+
+⸻
+
+三十二、測試
+
+建立 unit tests。
+
+至少測試：
+
+* moving averages
+* percentage change
+* slope
+* acceleration
+* percentile
+* z-score
+* relative strength
+* Market Score
+* Stock Score
+* Regime classification
+* divergence detection
+
+使用 deterministic test data。
+
+⸻
+
+三十三、最重要的驗收標準
+
+完成後，我打開首頁，應該能在 30 秒內回答：
+
+「現在台股是 Bull / Bear / Neutral？」
+
+「這個趨勢正在變強還是變弱？」
+
+「市場廣度支持不支持指數？」
+
+「外資 / 投信正在買還是賣？」
+
+「成交量是在支持還是背離價格？」
+
+「哪些 sector 正在領導？」
+
+「哪些 sector 正在轉弱？」
+
+「我的自選股誰最強？」
+
+「哪些股票正在發生 Regime Change？」
+
+「目前是正常回檔，還是可能的市場結構改變？」
+
+如果 Dashboard 無法回答以上問題，就不要增加更多指標，而應優先改善資訊架構與時間維度。
+
+⸻
+
+三十四、最終設計理念
+
+請始終遵守：
+
+Don’t show more data.
+Show more context.
+
+以及：
+
+Current state tells us WHERE we are.
+Change tells us WHAT happened.
+Trend tells us WHERE we are going.
+Acceleration tells us HOW FAST we are changing.
+Relative strength tells us WHO is winning.
+Historical percentile tells us HOW EXTREME the current state is.
+Regime tells us WHAT IT MEANS.
+
+請依此原則完成整個 Dashboard。
