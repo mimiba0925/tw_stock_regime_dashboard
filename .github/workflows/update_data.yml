@@ -1,0 +1,93 @@
+name: Auto Update TW Market Regime Dashboard
+
+# ==============================================================================
+# 台股資料更新時程（皆換算為台灣時間 TST = UTC+8）：
+#   1. 14:25 TST (06:25 UTC, 週一至週五) — 收盤價、成交金額、大盤與類股廣度出爐
+#   2. 17:20 TST (09:20 UTC, 週一至週五) — 三大法人買賣超（大盤 BFI82U + 個股 T86）出爐
+#   3. 21:45 TST (13:45 UTC, 週一至週五) — 融資融券餘額、本益比/殖利率/淨值比、月營收完整結算
+#   4. 06:30 TST (22:30 UTC, 週一至週五) — 美股收盤後更新 External Risk Context (VIX/SOX/Nasdaq/US10Y)
+# 另外：
+#   - 只要在 GitHub 線上編輯並 Commit `backend/config/watchlist.csv`、`universe.csv` 或 `settings.yaml`，
+#     立即觸發自動重算並更新 GitHub Pages！
+#   - 亦可隨時至 GitHub Actions 點選「Run workflow」手動立即更新。
+# ==============================================================================
+on:
+  schedule:
+    - cron: "25 6 * * 1-5"
+    - cron: "20 9 * * 1-5"
+    - cron: "45 13 * * 1-5"
+    - cron: "30 22 * * 1-5"
+  push:
+    branches: [main]
+    paths:
+      - "backend/config/**"
+      - "backend/app/**"
+      - "frontend/src/**"
+      - "build_static.py"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dashboard-update
+  cancel-in-progress: true
+
+jobs:
+  update-snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TZ: Asia/Taipei
+      FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Cache market data
+        uses: actions/cache@v4
+        with:
+          path: backend/data/cache
+          key: tw-market-cache-${{ runner.os }}
+          restore-keys: |
+            tw-market-cache-
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install Python dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build latest dashboard snapshot & static assets
+        run: python build_static.py --force
+
+      - name: Commit & push updated snapshot to GitHub Pages
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html snapshot.js assets
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "chore(data): auto update TW market regime snapshot ($(date '+%Y-%m-%d %H:%M TST')) [skip ci]"
+            git pull --rebase origin main
+            git push origin main
+          fi

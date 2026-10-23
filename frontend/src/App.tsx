@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api, useApi } from './api'
+import { api, isStaticMode, useApi } from './api'
 import { AlertsView } from './components/AlertsView'
 import { MarketDashboard } from './components/MarketDashboard'
 import { StockDetail } from './components/StockDetail'
@@ -71,10 +71,22 @@ export default function App() {
               法人資料回補中 {inst.market?.[0]}/{inst.market?.[1]}
             </Pill>
           )}
-          <span className="num">Last updated: {sum.data?.last_updated ?? '—'}</span>
-          <button onClick={doRefresh} disabled={refreshing} className="px-2 py-0.5 rounded border line hover:text-[var(--text)]">
-            {refreshing ? '更新中…' : '↻ 重新抓取'}
-          </button>
+          <span className="num">Last updated: {sum.data?.last_updated ?? '—'} (TST)</span>
+          {isStaticMode() ? (
+            <a
+              href="https://github.com/mimiba0925/tw_stock_regime_dashboard/actions/workflows/update_data.yml"
+              target="_blank"
+              rel="noreferrer"
+              className="px-2 py-0.5 rounded border line hover:text-[var(--text)]"
+              title="每日 14:25 / 17:20 / 21:45 / 06:30 (台灣時間) 自動更新，或點擊前往 GitHub Actions 手動觸發 Run workflow"
+            >
+              ⚡ 雲端自動更新 / 手動觸發
+            </a>
+          ) : (
+            <button onClick={doRefresh} disabled={refreshing} className="px-2 py-0.5 rounded border line hover:text-[var(--text)]">
+              {refreshing ? '更新中…' : '↻ 重新抓取'}
+            </button>
+          )}
           <button onClick={() => setDark((d) => !d)} className="px-2 py-0.5 rounded border line hover:text-[var(--text)]">
             {dark ? '☀ 淺色' : '☾ 深色'}
           </button>

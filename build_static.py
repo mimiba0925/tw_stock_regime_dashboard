@@ -21,9 +21,9 @@ from app.config import load_watchlist  # noqa: E402
 from app.service import SERVICE  # noqa: E402
 
 
-def build_snapshot() -> dict:
-    print("▶ [1/3] 計算台股大盤與自選個股最新狀態快照 ...")
-    SERVICE.get(force=False)
+def build_snapshot(force: bool = False) -> dict:
+    print(f"▶ [1/3] 計算台股大盤與自選個股最新狀態快照 (force={force}) ...")
+    SERVICE.get(force=force)
     snap: dict[str, object] = {
         "/api/market/summary": M.market_summary(),
         "/api/market/trend": M.market_trend(),
@@ -68,6 +68,7 @@ def export_to_root(snap: dict) -> None:
 
 
 if __name__ == "__main__":
-    s = build_snapshot()
+    force_flag = "--force" in sys.argv
+    s = build_snapshot(force=force_flag)
     build_frontend()
     export_to_root(s)

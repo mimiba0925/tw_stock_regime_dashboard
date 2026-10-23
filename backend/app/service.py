@@ -17,7 +17,7 @@ from . import alerts as AL
 from . import indicators as I
 from . import ingest as D
 from . import scoring as S
-from .config import get_settings, load_universe, load_watchlist, yahoo_symbol
+from .config import get_settings, load_universe, load_watchlist, now_taipei, yahoo_symbol
 from .regime import REGIME_ZH, classify, trend_state
 from .timeseries import _f, metric_summary, percentile, pct_change, rolling_slope, quality_of
 
@@ -111,11 +111,11 @@ class DashboardService:
     # ---------------- public ----------------
     def get(self, force: bool = False) -> Snapshot:
         ttl = get_settings()["update"]["price_refresh_minutes"] * 60
-        fresh = self.snap.built_at and (datetime.now() - self.snap.built_at).total_seconds() < ttl
+        fresh = self.snap.built_at and (now_taipei() - self.snap.built_at).total_seconds() < ttl
         if fresh and not force:
             return self.snap
         with self._lock:
-            fresh = self.snap.built_at and (datetime.now() - self.snap.built_at).total_seconds() < ttl
+            fresh = self.snap.built_at and (now_taipei() - self.snap.built_at).total_seconds() < ttl
             if fresh and not force:
                 return self.snap
             self.snap = self._build(force)
@@ -147,7 +147,7 @@ class DashboardService:
             prices = {k: f.result() for k, f in {**tw_futs, **ext_futs}.items()}
         twse_tv = D.fetch_twse_turnover()
         otc = D.fetch_tpex_index()
-        fundamentals = D.fetch_fundamentals()
+        fundamentals = D.fetch_fundamentals(force=force)
 
         taiex = prices.get("TAIEX")
         if taiex is None or taiex.empty:
@@ -211,7 +211,7 @@ class DashboardService:
             turnover_src = "估計"
         M = M.join(B)
         trading_days_set = trading_days
-        inst = D.load_market_institutional(trading_days_set)
+        inst = D.load_market_institutional(trading_days_set, force=force)
         for col in ["foreign", "trust", "dealer", "total"]:
             M[col] = inst[col].reindex(idx) if inst is not None else np.nan
         if prices.get("VIX") is not None:
@@ -272,7 +272,7 @@ class DashboardService:
 
         # ---------- stocks ----------
         stock_rows, stock_details = self._stocks(stocks, prices, c, sectors, fundamentals, trading_days, as_of,
-                                                 alert_list)
+                                                 alert_list, force)
 
         # ---------- assemble ----------
         snap.prices = prices
@@ -292,7 +292,7 @@ class DashboardService:
                 "institutional": D.INST_LOADER.progress,
             },
         }
-        snap.built_at = datetime.now()
+        snap.built_at = now_taipei()
         return snap
 
     # ---------------- sectors ----------------
@@ -325,7 +325,7 @@ class DashboardService:
         return out
 
     # ---------------- stocks ----------------
-    def _stocks(self, stocks, prices, index_close, sectors, fundamentals, trading_days, as_of, alert_list):
+    def _stocks(self, stocks, prices, index_close, sectors, fundamentals, trading_days, as_of, alert_list, force: bool = False):
         sector_eq: dict[str, pd.Series] = {}
         for s in sectors:
             cm = pd.DataFrame({x: prices[x]["close"] for x in s["symbols"]}).reindex(index_close.index)
@@ -360,10 +360,10 @@ class DashboardService:
                              "quality": "missing", "regime": None})
                 continue
             det = self._stock_detail(sym, r, df, index_close, sector_eq.get(r["sector"]), excess_all.get(sym, {}),
-                                     rs_now.get(sym), fundamentals.get(sym, {}), trading_days)
+                                     rs_now.get(sym), fundamentals.get(sym, {}), trading_days, force)
             details[sym] = det
             rows.append(det["row"])
-            inst = D.load_stock_institutional(sym, trading_days)
+            inst = D.load_stock_institutional(sym, trading_days, force=False)
             alert_list += AL.detect_stock_alerts(sym, r["name"], df, index_close, rs_now.get(sym),
                                                  rs_prev.get(sym), inst, as_of)
             if det["row"].get("regime_prev") and det["row"]["regime_prev"] != det["row"]["regime"]:
@@ -410,8 +410,8 @@ class DashboardService:
             "fundamental": S.stock_fundamental_score(f),
         }
 
-    def _stock_detail(self, sym, r, df, index_close, sector_eq, excess, rs, fund, trading_days) -> dict:
-        inst = D.load_stock_institutional(sym, trading_days)
+    def _stock_detail(self, sym, r, df, index_close, sector_eq, excess, rs, fund, trading_days, force: bool = False) -> dict:
+        inst = D.load_stock_institutional(sym, trading_days, force=force)
         lb = get_settings()["thresholds"]["regime_change_lookback"]
         f = self._stock_features(df, inst, fund)
         subs = self._stock_subscores(f, rs)

@@ -11,7 +11,7 @@ from typing import Any, Literal
 import numpy as np
 import pandas as pd
 
-from .config import get_settings
+from .config import get_settings, today_taipei
 
 Normalize = Literal["level", "std", "none"]
 
@@ -139,7 +139,7 @@ def quality_of(s: pd.Series, estimated: bool = False, today: date | None = None)
         return "missing"
     stale_days = get_settings()["update"]["stale_after_days"]
     last = pd.Timestamp(s.index[-1]).date()
-    today = today or datetime.now().date()
+    today = today or today_taipei()
     # 週末不算延遲
     bdays = np.busday_count(last, today) if last < today else 0
     if bdays > stale_days:

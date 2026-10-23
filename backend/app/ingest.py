@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import threading
 import time
 from datetime import date, datetime, timedelta
@@ -16,7 +17,7 @@ from typing import Any, Callable
 import pandas as pd
 import requests
 
-from .config import get_settings, resolve
+from .config import get_settings, now_taipei, resolve, today_taipei
 
 log = logging.getLogger("ingest")
 UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/124 Safari/537.36"}
@@ -49,7 +50,7 @@ class Cache:
             return None
         if ttl_sec is not None:
             upd = datetime.fromisoformat(obj["meta"]["update_time"])
-            if (datetime.now() - upd).total_seconds() > ttl_sec:
+            if (now_taipei() - upd).total_seconds() > ttl_sec:
                 return None
         return obj
 
@@ -58,7 +59,7 @@ class Cache:
             "meta": {
                 "source": source,
                 "data_timestamp": data_timestamp,
-                "update_time": datetime.now().isoformat(timespec="seconds"),
+                "update_time": now_taipei().isoformat(timespec="seconds"),
             },
             "data": data,
         }
@@ -98,9 +99,11 @@ def fetch_tw_price(symbol: str, force: bool = False) -> pd.DataFrame | None:
     ttl = cfg["update"]["price_refresh_minutes"] * 60
     cached = None if force else CACHE.get("tw_price", symbol, ttl)
     if cached is None:
-        start = (date.today() - timedelta(days=760)).isoformat()
+        start = (today_taipei() - timedelta(days=760)).isoformat()
+        token = os.environ.get("FINMIND_TOKEN", "").strip()
+        extra = f"&token={token}" if token else ""
         try:
-            url = f"https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockPrice&data_id={symbol}&start_date={start}"
+            url = f"https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockPrice&data_id={symbol}&start_date={start}{extra}"
             j = _http_json(url)
             data = j.get("data") or []
             rows = [
@@ -173,7 +176,7 @@ def fetch_yahoo(symbol: str, rng: str | None = None, force: bool = False) -> pd.
 # TWSE 大盤成交資訊（月資料：成交金額 / 股數 / 加權指數）
 # ============================================================
 def _months_back(n: int) -> list[date]:
-    today = date.today().replace(day=1)
+    today = today_taipei().replace(day=1)
     out = []
     y, m = today.year, today.month
     for _ in range(n):
@@ -194,7 +197,8 @@ def _roc_to_iso(s: str) -> str:
 
 def _month_cached(kind: str, month: date, fetch: Callable[[], Any], source: str) -> Any:
     key = month.strftime("%Y%m")
-    is_current = month.year == date.today().year and month.month == date.today().month
+    t = today_taipei()
+    is_current = month.year == t.year and month.month == t.month
     ttl = get_settings()["update"]["price_refresh_minutes"] * 60 if is_current else None
     c = CACHE.get(kind, key, ttl)
     if c is not None:
@@ -342,14 +346,19 @@ class InstitutionalLoader:
 INST_LOADER = InstitutionalLoader()
 
 
-def load_market_institutional(trading_days: list[date]) -> pd.DataFrame | None:
+def _fm_token() -> str:
+    t = os.environ.get("FINMIND_TOKEN", "").strip()
+    return f"&token={t}" if t else ""
+
+
+def load_market_institutional(trading_days: list[date], force: bool = False) -> pd.DataFrame | None:
     """全市場三大法人買賣超金額（元）。一次抓取區間，秒級完成。"""
     ttl = get_settings()["update"]["price_refresh_minutes"] * 60
-    c = CACHE.get("market_inst", "all", ttl)
+    c = None if force else CACHE.get("market_inst", "all", ttl)
     if c is None:
-        start = (date.today() - timedelta(days=400)).isoformat()
+        start = (today_taipei() - timedelta(days=400)).isoformat()
         try:
-            j = _http_json(f"https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockTotalInstitutionalInvestors&start_date={start}")
+            j = _http_json(f"https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockTotalInstitutionalInvestors&start_date={start}{_fm_token()}")
             by_date: dict[str, dict[str, float]] = {}
             for r in j.get("data") or []:
                 d = by_date.setdefault(r["date"], {"foreign": 0.0, "trust": 0.0, "dealer": 0.0, "total": 0.0})
@@ -376,14 +385,14 @@ def load_market_institutional(trading_days: list[date]) -> pd.DataFrame | None:
     return df.set_index("date").sort_index().astype(float)
 
 
-def load_stock_institutional(code: str, trading_days: list[date] | None = None) -> pd.DataFrame | None:
+def load_stock_institutional(code: str, trading_days: list[date] | None = None, force: bool = False) -> pd.DataFrame | None:
     """個股三大法人買賣超股數（股）。支援上市與上櫃。"""
     ttl = get_settings()["update"]["price_refresh_minutes"] * 60
-    c = CACHE.get("stock_inst", code, ttl)
+    c = None if force else CACHE.get("stock_inst", code, ttl)
     if c is None:
-        start = (date.today() - timedelta(days=200)).isoformat()
+        start = (today_taipei() - timedelta(days=200)).isoformat()
         try:
-            j = _http_json(f"https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockInstitutionalInvestorsBuySell&data_id={code}&start_date={start}")
+            j = _http_json(f"https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockInstitutionalInvestorsBuySell&data_id={code}&start_date={start}{_fm_token()}")
             by_date: dict[str, dict[str, float]] = {}
             for r in j.get("data") or []:
                 d = by_date.setdefault(r["date"], {"foreign": 0.0, "trust": 0.0, "dealer": 0.0})
@@ -407,14 +416,14 @@ def load_stock_institutional(code: str, trading_days: list[date] | None = None) 
     return df.set_index("date").sort_index().astype(float)
 
 
-def load_stock_margin(code: str) -> pd.DataFrame | None:
+def load_stock_margin(code: str, force: bool = False) -> pd.DataFrame | None:
     """個股融資融券餘額（張）。"""
     ttl = get_settings()["update"]["price_refresh_minutes"] * 60
-    c = CACHE.get("stock_margin", code, ttl)
+    c = None if force else CACHE.get("stock_margin", code, ttl)
     if c is None:
-        start = (date.today() - timedelta(days=200)).isoformat()
+        start = (today_taipei() - timedelta(days=200)).isoformat()
         try:
-            j = _http_json(f"https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockMarginPurchaseShortSale&data_id={code}&start_date={start}")
+            j = _http_json(f"https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockMarginPurchaseShortSale&data_id={code}&start_date={start}{_fm_token()}")
             rows = [
                 {
                     "date": r["date"],
@@ -437,9 +446,9 @@ def load_stock_margin(code: str) -> pd.DataFrame | None:
 # ============================================================
 # 基本面（TWSE / TPEx OpenAPI）
 # ============================================================
-def fetch_fundamentals() -> dict[str, dict]:
+def fetch_fundamentals(force: bool = False) -> dict[str, dict]:
     """回傳 {code: {pe, pb, dividend_yield, revenue_yoy, revenue_mom, revenue_month}}。"""
-    c = CACHE.get("fundamentals", "all", 6 * 3600)
+    c = None if force else CACHE.get("fundamentals", "all", 6 * 3600)
     if c is not None:
         return c["data"]
     out: dict[str, dict] = {}

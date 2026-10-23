@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { api, useApi } from '../api'
+import { api, isStaticMode, useApi } from '../api'
 import { fmtNum, fmtPct, isNum, NA, scoreTone, signTone } from '../format'
 import { Card, ErrorBox, Loading, Pill, QualityBadge, Sparkline, Value } from './ui'
 
@@ -66,7 +66,24 @@ export function WatchlistView({ onSelect }: { onSelect: (sym: string) => void })
       <Card
         title="自選股 Watchlist（與 CSV 檔案雙向同步）"
         question="我的自選股誰最強？是否強於大盤？目前處於什麼 Regime？"
-        subtitle={`CSV 路徑：backend/${data?.csv ?? 'config/watchlist.csv'}（可直接用文字編輯器/Excel 修改，或於下方新增/刪除）`}
+        subtitle={
+          isStaticMode() ? (
+            <span>
+              CSV 檔案：<code className="num">backend/{data?.csv ?? 'config/watchlist.csv'}</code> —{' '}
+              <a
+                href="https://github.com/mimiba0925/tw_stock_regime_dashboard/edit/main/backend/config/watchlist.csv"
+                target="_blank"
+                rel="noreferrer"
+                className="underline tone-positive"
+              >
+                點此直接在 GitHub 線上編輯 watchlist.csv
+              </a>
+              （儲存 Commit 後，GitHub Actions 會自動重算並更新本頁）
+            </span>
+          ) : (
+            `CSV 路徑：backend/${data?.csv ?? 'config/watchlist.csv'}（可直接用文字編輯器/Excel 修改，或於下方新增/刪除）`
+          )
+        }
       >
         <form onSubmit={add} className="flex flex-wrap items-center gap-2 pb-2 border-b line text-[12px]">
           <input value={symbol} onChange={(e) => setSymbol(e.target.value)} placeholder="代號 例 2330" className="px-2 py-1 rounded border line bg-transparent w-28 num" />

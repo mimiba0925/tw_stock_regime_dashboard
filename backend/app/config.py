@@ -2,14 +2,26 @@
 from __future__ import annotations
 
 import csv
+import os
+from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import yaml
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 CONFIG_DIR = BASE_DIR / "config"
+TAIPEI_TZ = ZoneInfo("Asia/Taipei")
+
+
+def now_taipei() -> datetime:
+    return datetime.now(TAIPEI_TZ).replace(tzinfo=None)
+
+
+def today_taipei():
+    return now_taipei().date()
 
 
 @lru_cache(maxsize=1)
