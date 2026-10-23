@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api, isStaticMode, useApi } from './api'
+import { api, isStaticMode, reloadSnapshot, useApi } from './api'
 import { AlertsView } from './components/AlertsView'
 import { MarketDashboard } from './components/MarketDashboard'
 import { StockDetail } from './components/StockDetail'
@@ -27,6 +27,11 @@ export default function App() {
   const doRefresh = async () => {
     setRefreshing(true)
     try {
+      if (isStaticMode()) {
+        await reloadSnapshot()
+        window.location.reload()
+        return
+      }
       await api('/api/refresh', { method: 'POST' })
       sum.reload()
     } finally {
@@ -72,7 +77,10 @@ export default function App() {
             </Pill>
           )}
           <span className="num">Last updated: {sum.data?.last_updated ?? '—'} (TST)</span>
-          {isStaticMode() ? (
+          <button onClick={doRefresh} disabled={refreshing} className="px-2 py-0.5 rounded border line hover:text-[var(--text)]" title="重新載入最新快照資料（破除瀏覽器快取）">
+            {refreshing ? '載入中…' : '↻ 重新載入最新資料'}
+          </button>
+          {isStaticMode() && (
             <a
               href="https://github.com/mimiba0925/tw_stock_regime_dashboard/actions/workflows/update_data.yml"
               target="_blank"
@@ -80,12 +88,8 @@ export default function App() {
               className="px-2 py-0.5 rounded border line hover:text-[var(--text)]"
               title="每日 14:25 / 17:20 / 21:45 / 06:30 (台灣時間) 自動更新，或點擊前往 GitHub Actions 手動觸發 Run workflow"
             >
-              ⚡ 雲端自動更新 / 手動觸發
+              ⚡ 雲端觸發重算
             </a>
-          ) : (
-            <button onClick={doRefresh} disabled={refreshing} className="px-2 py-0.5 rounded border line hover:text-[var(--text)]">
-              {refreshing ? '更新中…' : '↻ 重新抓取'}
-            </button>
           )}
           <button onClick={() => setDark((d) => !d)} className="px-2 py-0.5 rounded border line hover:text-[var(--text)]">
             {dark ? '☀ 淺色' : '☾ 深色'}

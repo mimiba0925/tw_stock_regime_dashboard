@@ -5,9 +5,11 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -58,7 +60,10 @@ def build_frontend() -> None:
 def export_to_root(snap: dict) -> None:
     print("▶ [3/3] 輸出靜態網站檔案至根目錄（供 GitHub Pages 直接部署）...")
     dist = FRONTEND / "dist"
-    shutil.copy2(dist / "index.html", ROOT / "index.html")
+    ver = int(time.time())
+    html = (dist / "index.html").read_text(encoding="utf-8")
+    html = re.sub(r'src="\./snapshot\.js(\?v=\d+)?"', f'src="./snapshot.js?v={ver}"', html)
+    (ROOT / "index.html").write_text(html, encoding="utf-8")
     assets_dst = ROOT / "assets"
     if assets_dst.exists():
         shutil.rmtree(assets_dst)
@@ -66,7 +71,7 @@ def export_to_root(snap: dict) -> None:
 
     payload = json.dumps(snap, ensure_ascii=False, separators=(",", ":"))
     (ROOT / "snapshot.js").write_text(f"window.__DASHBOARD_SNAPSHOT__={payload};\n", encoding="utf-8")
-    print(f"✔ 已產生 index.html、assets/、snapshot.js ({len(payload) / 1024:.1f} KB)")
+    print(f"✔ 已產生 index.html (v={ver})、assets/、snapshot.js ({len(payload) / 1024:.1f} KB)")
 
 
 if __name__ == "__main__":

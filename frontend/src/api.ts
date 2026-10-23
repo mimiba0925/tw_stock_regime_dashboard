@@ -10,8 +10,39 @@ declare global {
   }
 }
 
+let _remoteSnapLoaded = false
+let _remoteSnapPromise: Promise<void> | null = null
+
+/** 在 GitHub Pages 靜態模式下，於首次載入時附加 timestamp 動態抓取最新 snapshot.js，破除瀏覽器與 CDN 快取 */
+export function ensureFreshSnapshot(): Promise<void> {
+  if (!window.__DASHBOARD_SNAPSHOT__ || _remoteSnapLoaded) return Promise.resolve()
+  if (_remoteSnapPromise) return _remoteSnapPromise
+  _remoteSnapPromise = fetch(`./snapshot.js?t=${Date.now()}`, { cache: 'no-store' })
+    .then((r) => (r.ok ? r.text() : ''))
+    .then((txt) => {
+      const prefix = 'window.__DASHBOARD_SNAPSHOT__='
+      if (txt.startsWith(prefix)) {
+        const jsonStr = txt.slice(prefix.length).trim().replace(/;$/, '')
+        window.__DASHBOARD_SNAPSHOT__ = JSON.parse(jsonStr)
+      }
+    })
+    .catch(() => {
+      /* ignore */
+    })
+    .finally(() => {
+      _remoteSnapLoaded = true
+    })
+  return _remoteSnapPromise
+}
+
 export function isStaticMode(): boolean {
   return Boolean(window.__DASHBOARD_SNAPSHOT__)
+}
+
+export function reloadSnapshot(): Promise<void> {
+  _remoteSnapLoaded = false
+  _remoteSnapPromise = null
+  return ensureFreshSnapshot()
 }
 
 export async function api<T = Json>(path: string, init?: RequestInit): Promise<T> {
@@ -59,6 +90,10 @@ export function useApi<T = Json>(path: string | null, deps: unknown[] = []) {
     if (snap && path in snap) {
       setData(snap[path] as T)
       setError(null)
+      ensureFreshSnapshot().then(() => {
+        const latest = window.__DASHBOARD_SNAPSHOT__
+        if (latest && path in latest) setData(latest[path] as T)
+      })
       return
     }
     setLoading(true)
