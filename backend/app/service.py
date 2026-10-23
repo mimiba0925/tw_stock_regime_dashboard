@@ -372,7 +372,7 @@ class DashboardService:
                     title=f"{sym} {r['name']} REGIME CHANGE：{REGIME_ZH[det['row']['regime_prev']]} → {det['row']['regime_label']}",
                     reason=f"Stock Score {_fmt(det['row'].get('score_prev'))} → {_fmt(det['row']['score'])}",
                     as_of=as_of))
-        rows.sort(key=lambda x: -(x.get("score") or -1))
+        rows.sort(key=lambda x: (int("".join(c for c in x["symbol"] if c.isdigit()) or 999999), x["symbol"]))
         return rows, details
 
     def _stock_features(self, df: pd.DataFrame, inst: pd.DataFrame | None, fund: dict) -> dict:

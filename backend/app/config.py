@@ -53,9 +53,17 @@ def _load_csv(path: Path) -> list[dict[str, str]]:
     return rows
 
 
+def _sym_sort_key(row: dict[str, str]):
+    s = (row.get("symbol") or "").strip()
+    digits = "".join(ch for ch in s if ch.isdigit())
+    return (int(digits) if digits else 999999, s)
+
+
 def load_watchlist() -> list[dict[str, str]]:
-    """自選股名單：每次呼叫重新讀取 CSV，修改後無需重啟。"""
-    return _load_csv(resolve(get_settings()["data_source"]["watchlist_csv"]))
+    """自選股名單：每次呼叫重新讀取 CSV，並依股票代號由小到大排序。"""
+    rows = _load_csv(resolve(get_settings()["data_source"]["watchlist_csv"]))
+    rows.sort(key=_sym_sort_key)
+    return rows
 
 
 def load_universe() -> list[dict[str, str]]:
@@ -64,6 +72,7 @@ def load_universe() -> list[dict[str, str]]:
 
 
 def save_watchlist(rows: list[dict[str, str]]) -> None:
+    rows = sorted(rows, key=_sym_sort_key)
     path = resolve(get_settings()["data_source"]["watchlist_csv"])
     with open(path, "w", encoding="utf-8", newline="") as f:
         w = csv.DictWriter(f, fieldnames=["symbol", "name", "market", "sector"])

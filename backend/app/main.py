@@ -99,7 +99,7 @@ def _answers(d: dict) -> list[dict]:
         out.append({"q": "哪些類股正在轉弱？",
                     "a": "、".join(s["name"] for s in sorted(d["sectors"], key=lambda s: s["momentum_shift"] or 0)[:3]),
                     "tone": "negative"})
-    rows = [r for r in d["stocks"] if r.get("score") is not None]
+    rows = sorted([r for r in d["stocks"] if r.get("score") is not None], key=lambda r: -r["score"])
     if rows:
         out.append({"q": "我的自選股誰最強？",
                     "a": "、".join(f"{r['symbol']} {r['name']}（{r['score']:.0f}）" for r in rows[:3]), "tone": "positive"})

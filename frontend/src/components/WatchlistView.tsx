@@ -5,7 +5,7 @@ import { Card, ErrorBox, Loading, Pill, QualityBadge, Sparkline, Value } from '.
 
 export function WatchlistView({ onSelect }: { onSelect: (sym: string) => void }) {
   const { data, error, loading, reload } = useApi('/api/stocks/watchlist')
-  const [sortKey, setSortKey] = useState<'score' | 'rs' | 'trend' | 'momentum' | 'chip' | 'fundamental' | 'change'>('score')
+  const [sortKey, setSortKey] = useState<'symbol' | 'score' | 'rs' | 'trend' | 'momentum' | 'chip' | 'fundamental' | 'change'>('symbol')
   const [symbol, setSymbol] = useState('')
   const [name, setName] = useState('')
   const [market, setMarket] = useState<'TWSE' | 'TPEX'>('TWSE')
@@ -16,7 +16,16 @@ export function WatchlistView({ onSelect }: { onSelect: (sym: string) => void })
   if (loading && !data) return <Loading />
   if (error) return <ErrorBox error={error} />
 
-  const rows = [...(data?.rows ?? [])].sort((a, b) => (b[sortKey] ?? -999) - (a[sortKey] ?? -999))
+  const symNum = (s: string) => {
+    const n = parseInt(String(s).replace(/\D/g, ''), 10)
+    return Number.isFinite(n) ? n : 999999
+  }
+  const rows = [...(data?.rows ?? [])].sort((a, b) => {
+    if (sortKey === 'symbol') {
+      return symNum(a.symbol) - symNum(b.symbol) || String(a.symbol).localeCompare(String(b.symbol))
+    }
+    return (b[sortKey] ?? -999) - (a[sortKey] ?? -999) || symNum(a.symbol) - symNum(b.symbol)
+  })
 
   const add = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -30,6 +39,7 @@ export function WatchlistView({ onSelect }: { onSelect: (sym: string) => void })
         body: JSON.stringify({ symbol: symbol.trim(), name: name.trim() || symbol.trim(), market, sector: sector.trim() || '未分類' }),
       })
       setSymbol(''); setName(''); setSector('')
+      setSortKey('symbol')
       reload()
     } catch (err: any) {
       setMsg(err.message)
@@ -43,6 +53,7 @@ export function WatchlistView({ onSelect }: { onSelect: (sym: string) => void })
     setBusy(true)
     try {
       await api(`/api/stocks/watchlist/${sym}`, { method: 'DELETE' })
+      setSortKey('symbol')
       reload()
     } finally {
       setBusy(false)
@@ -103,7 +114,9 @@ export function WatchlistView({ onSelect }: { onSelect: (sym: string) => void })
           <table className="w-full text-[12px]">
             <thead>
               <tr className="text-[11px]">
-                <th className="text-left pb-1.5">代號 / 名稱</th>
+                <th onClick={() => setSortKey('symbol')} className="text-left pb-1.5 cursor-pointer hover:text-[var(--text)]">
+                  代號 / 名稱 {sortKey === 'symbol' ? '▲' : ''}
+                </th>
                 <th className="text-left pb-1.5 px-2">產業</th>
                 <th className="text-right pb-1.5 px-2">價格</th>
                 {th('change', '1D 漲跌')}
