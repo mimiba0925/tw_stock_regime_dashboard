@@ -17,11 +17,13 @@ FRONTEND = ROOT / "frontend"
 sys.path.insert(0, str(BACKEND))
 
 from app import main as M  # noqa: E402
-from app.config import load_watchlist  # noqa: E402
+from app.config import load_watchlist, save_watchlist  # noqa: E402
 from app.service import SERVICE  # noqa: E402
 
 
 def build_snapshot(force: bool = False) -> dict:
+    # 讀入 watchlist.csv 並自動依股票代碼排序後寫回，確保線上編輯後 CSV 亦自動排序
+    save_watchlist(load_watchlist())
     print(f"▶ [1/3] 計算台股大盤與自選個股最新狀態快照 (force={force}) ...")
     SERVICE.get(force=force)
     snap: dict[str, object] = {
