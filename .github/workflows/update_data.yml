@@ -29,8 +29,6 @@ on:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 concurrency:
   group: dashboard-update
@@ -83,7 +81,6 @@ jobs:
         run: python build_static.py --force
 
       - name: Commit & push updated snapshot to main branch
-        continue-on-error: true
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -95,19 +92,3 @@ jobs:
             git pull --rebase -X ours origin main
             git push origin HEAD:main
           fi
-
-      - name: Prepare Pages artifact
-        run: |
-          mkdir -p _site
-          cp index.html snapshot.js _site/
-          cp -r assets _site/assets
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        continue-on-error: true
-        uses: actions/deploy-pages@v4
