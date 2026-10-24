@@ -78,7 +78,9 @@ jobs:
         run: npm ci
 
       - name: Build latest dashboard snapshot & static assets
-        run: python build_static.py --force
+        run: |
+          git pull --rebase origin main
+          python build_static.py --force
 
       - name: Commit & push updated snapshot to main branch
         run: |
@@ -89,6 +91,5 @@ jobs:
             echo "No changes to commit."
           else
             git commit -m "chore(data): auto update TW market regime snapshot ($(date '+%Y-%m-%d %H:%M TST')) [skip ci]"
-            git pull --rebase -X ours origin main
             git push origin HEAD:main
           fi
