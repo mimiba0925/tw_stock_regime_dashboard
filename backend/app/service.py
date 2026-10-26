@@ -143,7 +143,7 @@ class DashboardService:
         tw_jobs = ["TAIEX"] + list(stocks.keys())
         with ThreadPoolExecutor(max_workers=6) as ex:
             tw_futs = {k: ex.submit(D.fetch_tw_price, k, force) for k in tw_jobs}
-            ext_futs = {k: ex.submit(D.fetch_yahoo, v, None, force) for k, v in ext.items()}
+            ext_futs = {k: ex.submit(D.fetch_external, k, force) for k in ext}
             prices = {k: f.result() for k, f in {**tw_futs, **ext_futs}.items()}
         twse_tv = D.fetch_twse_turnover()
         otc = D.fetch_tpex_index()

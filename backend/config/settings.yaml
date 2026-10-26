@@ -18,6 +18,16 @@ data_source:
   http_timeout_sec: 20
   watchlist_csv: "config/watchlist.csv"
   universe_csv: "config/universe.csv"
+  # 外部市場：主要來源 CNBC（無頻率限制），Yahoo 作為備援（常遭 429 限流）
+  external_cnbc:
+    VIX: ".VIX"
+    USD/TWD: "TWD="
+    US10Y: "US10Y"
+    Nasdaq: ".IXIC"
+    SOX: ".SOX"
+    "S&P 500": ".SPX"
+    Nikkei: ".N225"
+    "Hang Seng": ".HSI"
   external:
     VIX: "^VIX"
     USD/TWD: "TWD=X"

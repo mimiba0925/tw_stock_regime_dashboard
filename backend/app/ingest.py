@@ -125,7 +125,52 @@ def fetch_tw_price(symbol: str, force: bool = False) -> pd.DataFrame | None:
 
 
 # ============================================================
-# Yahoo Finance（國際市場指數 / 匯率）
+# CNBC（國際市場指數 / 匯率 / 美債殖利率）— 外部風險背景主要來源
+# ============================================================
+def fetch_cnbc(symbol: str, force: bool = False) -> pd.DataFrame | None:
+    """CNBC chart API：1Y 範圍回傳約 2 年日線，無需金鑰且不像 Yahoo 頻繁 429。"""
+    ttl = get_settings()["update"]["price_refresh_minutes"] * 60
+    cached = None if force else CACHE.get("cnbc", symbol, ttl)
+    if cached is None:
+        try:
+            j = _http_json(f"https://ts-api.cnbc.com/harmony/app/charts/1Y.json?symbol={requests.utils.quote(symbol)}")
+            bars = (j.get("barData") or {}).get("priceBars") or []
+            rows = []
+            for b in bars:
+                t = str(b.get("tradeTime", ""))[:8]
+                c = _num(b.get("close"))
+                if len(t) != 8 or c is None:
+                    continue
+                rows.append([f"{t[:4]}-{t[4:6]}-{t[6:]}", _num(b.get("open")), _num(b.get("high")),
+                             _num(b.get("low")), c, _num(b.get("volume")) or 0.0])
+            if rows:
+                cached = CACHE.put("cnbc", symbol, {"rows": rows}, "CNBC", rows[-1][0])
+        except Exception as e:  # noqa: BLE001
+            log.warning("cnbc %s failed: %s", symbol, e)
+        if cached is None:
+            cached = CACHE.get("cnbc", symbol)  # 退回舊快取
+    if not cached or not cached["data"].get("rows"):
+        return None
+    df = pd.DataFrame(cached["data"]["rows"], columns=["date", "open", "high", "low", "close", "volume"])
+    df["date"] = pd.to_datetime(df["date"])
+    df = df.drop_duplicates("date", keep="last").set_index("date").sort_index().astype(float)
+    df.attrs["meta"] = cached["meta"]
+    return df
+
+
+def fetch_external(name: str, force: bool = False) -> pd.DataFrame | None:
+    """外部市場：CNBC 優先，失敗時改用 Yahoo。"""
+    ds = get_settings()["data_source"]
+    cn = (ds.get("external_cnbc") or {}).get(name)
+    df = fetch_cnbc(cn, force) if cn else None
+    if df is not None and len(df) >= 20:
+        return df
+    yh = (ds.get("external") or {}).get(name)
+    return fetch_yahoo(yh, None, force) if yh else df
+
+
+# ============================================================
+# Yahoo Finance（國際市場指數 / 匯率）— 備援來源
 # ============================================================
 def fetch_yahoo(symbol: str, rng: str | None = None, force: bool = False) -> pd.DataFrame | None:
     cfg = get_settings()
