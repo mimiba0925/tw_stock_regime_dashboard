@@ -145,8 +145,8 @@ class DashboardService:
             tw_futs = {k: ex.submit(D.fetch_tw_price, k, force) for k in tw_jobs}
             ext_futs = {k: ex.submit(D.fetch_external, k, force) for k in ext}
             prices = {k: f.result() for k, f in {**tw_futs, **ext_futs}.items()}
-        twse_tv = D.fetch_twse_turnover()
-        otc = D.fetch_tpex_index()
+        twse_tv = D.fetch_twse_turnover(force=force)
+        otc = D.fetch_tpex_index(force=force)
         fundamentals = D.fetch_fundamentals(force=force)
 
         taiex = prices.get("TAIEX")
@@ -203,10 +203,10 @@ class DashboardService:
         turnover_src = "TWSE FMTQIK"
         if twse_tv is not None:
             M["turnover"] = twse_tv["turnover"].reindex(idx)
-        elif "turnover" in taiex.columns and taiex["turnover"].notna().any():
-            M["turnover"] = taiex["turnover"]
+        if "turnover" in taiex.columns and taiex["turnover"].notna().any():
+            M["turnover"] = M["turnover"].fillna(taiex["turnover"]) if "turnover" in M else taiex["turnover"]
             turnover_src = "FinMind / TWSE"
-        else:
+        if "turnover" not in M or M["turnover"].isna().all():
             M["turnover"] = taiex["volume"]
             turnover_src = "估計"
         M = M.join(B)

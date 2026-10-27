@@ -240,12 +240,12 @@ def _roc_to_iso(s: str) -> str:
     return f"{int(y) + 1911}-{m}-{d}"
 
 
-def _month_cached(kind: str, month: date, fetch: Callable[[], Any], source: str) -> Any:
+def _month_cached(kind: str, month: date, fetch: Callable[[], Any], source: str, force: bool = False) -> Any:
     key = month.strftime("%Y%m")
     t = today_taipei()
     is_current = month.year == t.year and month.month == t.month
     ttl = get_settings()["update"]["price_refresh_minutes"] * 60 if is_current else None
-    c = CACHE.get(kind, key, ttl)
+    c = None if (force and is_current) else CACHE.get(kind, key, ttl)
     if c is not None:
         return c["data"]
     try:
@@ -259,7 +259,7 @@ def _month_cached(kind: str, month: date, fetch: Callable[[], Any], source: str)
         return c["data"] if c else []
 
 
-def fetch_twse_turnover() -> pd.DataFrame | None:
+def fetch_twse_turnover(force: bool = False) -> pd.DataFrame | None:
     n = get_settings()["data_source"]["index_history_months"]
     rows: list[list] = []
     for m in _months_back(n):
@@ -272,7 +272,7 @@ def fetch_twse_turnover() -> pd.DataFrame | None:
                 y, mo, d = r[0].split("/")
                 out.append([f"{int(y) + 1911}-{mo}-{d}", _num(r[1]), _num(r[2]), _num(r[4])])
             return out
-        rows += _month_cached("twse_fmtqik", m, f, "TWSE FMTQIK")
+        rows += _month_cached("twse_fmtqik", m, f, "TWSE FMTQIK", force=force)
     if not rows:
         return None
     df = pd.DataFrame(rows, columns=["date", "shares", "turnover", "taiex"])
@@ -280,7 +280,11 @@ def fetch_twse_turnover() -> pd.DataFrame | None:
     return df.drop_duplicates("date").set_index("date").sort_index()
 
 
-def fetch_tpex_index() -> pd.DataFrame | None:
+def fetch_tpex_index(force: bool = False) -> pd.DataFrame | None:
+    """櫃買指數：優先使用 FinMind TPEx（更新穩定），若失敗則退回 TPEx 官網。"""
+    df = fetch_tw_price("TPEx", force=force)
+    if df is not None and not df.empty:
+        return df
     n = get_settings()["data_source"]["index_history_months"]
     rows: list[list] = []
     for m in _months_back(n):
@@ -292,7 +296,7 @@ def fetch_tpex_index() -> pd.DataFrame | None:
                 return []
             return [[r[0].replace("/", "-"), _num(r[1]), _num(r[2]), _num(r[3]), _num(r[4])]
                     for r in tables[0].get("data", [])]
-        rows += _month_cached("tpex_index", m, f, "TPEx 櫃買指數")
+        rows += _month_cached("tpex_index", m, f, "TPEx 櫃買指數", force=force)
     if not rows:
         return None
     df = pd.DataFrame(rows, columns=["date", "open", "high", "low", "close"])

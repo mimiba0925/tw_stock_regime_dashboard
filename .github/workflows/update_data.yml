@@ -2,10 +2,11 @@ name: Auto Update & Deploy TW Market Regime Dashboard
 
 # ==============================================================================
 # 台股資料更新時程（皆換算為台灣時間 TST = UTC+8）：
-#   1. 14:25 TST (06:25 UTC, 週一至週五) — 收盤價、成交金額、大盤與類股廣度出爐
-#   2. 17:20 TST (09:20 UTC, 週一至週五) — 三大法人買賣超（大盤 BFI82U + 個股 T86）出爐
-#   3. 21:45 TST (13:45 UTC, 週一至週五) — 融資融券餘額、本益比/殖利率/淨值比、月營收完整結算
-#   4. 06:30 TST (22:30 UTC, 週一至週五) — 美股收盤後更新 External Risk Context (VIX/SOX/Nasdaq/US10Y)
+#   1. 14:25 TST (06:25 UTC, 週一至週五) — 第一波收盤價、成交金額、大盤與類股廣度出爐
+#   2. 15:35 TST (07:35 UTC, 週一至週五) — 盤後確定版收盤價與零股/指數結算補齊
+#   3. 17:20 TST (09:20 UTC, 週一至週五) — 三大法人買賣超（大盤 BFI82U + 個股 T86）出爐
+#   4. 21:45 TST (13:45 UTC, 週一至週五) — 融資融券餘額、本益比/殖利率/淨值比、月營收完整結算
+#   5. 06:30 TST (22:30 UTC, 週一至週五) — 美股收盤後更新 External Risk Context (VIX/SOX/Nasdaq/US10Y)
 # 另外：
 #   - 只要在 GitHub 線上編輯並 Commit `backend/config/watchlist.csv`、`universe.csv` 或 `settings.yaml`，
 #     立即觸發自動重算並更新 GitHub Pages！
@@ -14,6 +15,7 @@ name: Auto Update & Deploy TW Market Regime Dashboard
 on:
   schedule:
     - cron: "25 6 * * 1-5"
+    - cron: "35 7 * * 1-5"
     - cron: "20 9 * * 1-5"
     - cron: "45 13 * * 1-5"
     - cron: "30 22 * * 1-5"

@@ -29,7 +29,6 @@ export default function App() {
     try {
       if (isStaticMode()) {
         await reloadSnapshot()
-        window.location.reload()
         return
       }
       await api('/api/refresh', { method: 'POST' })

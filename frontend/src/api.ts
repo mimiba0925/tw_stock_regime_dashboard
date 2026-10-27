@@ -12,6 +12,14 @@ declare global {
 
 let _remoteSnapLoaded = false
 let _remoteSnapPromise: Promise<void> | null = null
+const _listeners = new Set<() => void>()
+
+export function subscribeSnapshot(fn: () => void): () => void {
+  _listeners.add(fn)
+  return () => {
+    _listeners.delete(fn)
+  }
+}
 
 /** 在 GitHub Pages 靜態模式下，於首次載入時附加 timestamp 動態抓取最新 snapshot.js，破除瀏覽器與 CDN 快取 */
 export function ensureFreshSnapshot(): Promise<void> {
@@ -24,6 +32,7 @@ export function ensureFreshSnapshot(): Promise<void> {
       if (txt.startsWith(prefix)) {
         const jsonStr = txt.slice(prefix.length).trim().replace(/;$/, '')
         window.__DASHBOARD_SNAPSHOT__ = JSON.parse(jsonStr)
+        _listeners.forEach((fn) => fn())
       }
     })
     .catch(() => {
@@ -107,5 +116,12 @@ export function useApi<T = Json>(path: string | null, deps: unknown[] = []) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path, ...deps])
   useEffect(load, [load])
+  useEffect(() => {
+    if (!path) return
+    return subscribeSnapshot(() => {
+      const latest = window.__DASHBOARD_SNAPSHOT__
+      if (latest && path in latest) setData(latest[path] as T)
+    })
+  }, [path])
   return { data, error, loading, reload: load }
 }
