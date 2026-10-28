@@ -20,9 +20,14 @@ def run_cmd(cmd, check=True, capture=False):
 def main():
     py = str(VENV_PY) if VENV_PY.exists() else sys.executable
     print("=" * 65)
-    print(" [Step 1/2] 執行 build_static.py 產生最新靜態網站與 snapshot.js ...")
+    print(" [Step 0/2] 先同步 GitHub 遠端最新變更 (git pull --rebase) ...")
     print("=" * 65)
-    run_cmd([py, "build_static.py"], check=True)
+    run_cmd(["git", "pull", "--rebase", "origin", "main"], check=False)
+
+    print("\n" + "=" * 65)
+    print(" [Step 1/2] 執行 build_static.py --force 產生最新靜態網站與 snapshot.js ...")
+    print("=" * 65)
+    run_cmd([py, "build_static.py", "--force"], check=True)
 
     print("\n" + "=" * 65)
     print(" [Step 2/2] 準備同步最新儀表板至 GitHub ...")
