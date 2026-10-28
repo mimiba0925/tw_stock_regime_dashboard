@@ -22,7 +22,7 @@ def main():
     print("=" * 65)
     print(" [Step 0/2] 先同步 GitHub 遠端最新變更 (git pull --rebase) ...")
     print("=" * 65)
-    run_cmd(["git", "pull", "--rebase", "origin", "main"], check=False)
+    run_cmd(["git", "pull", "--rebase", "--autostash", "origin", "main"], check=False)
 
     print("\n" + "=" * 65)
     print(" [Step 1/2] 執行 build_static.py --force 產生最新靜態網站與 snapshot.js ...")
