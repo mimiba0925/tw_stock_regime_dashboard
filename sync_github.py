@@ -46,7 +46,7 @@ def main():
     run_cmd(["git", "add", "-A"], check=True)
 
     commit_res = run_cmd(
-        ["git", "commit", "-m", f"Auto update TW market regime dashboard: {today_str}"],
+        ["git", "commit", "-m", f"Auto update TW market regime dashboard: {today_str} [skip ci]"],
         check=False,
         capture=True,
     )
